@@ -1,6 +1,8 @@
 --
 -- lume
 --
+-- readme: https://github.com/rxi/lume/blob/master/README.md
+--
 -- Copyright (c) 2018 rxi
 --
 -- Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -555,15 +557,16 @@ end
 
 
 local serialize
+local serialize_layer = 0
 
 local serialize_map = {
   [ "boolean" ] = tostring,
   [ "nil"     ] = tostring,
   [ "string"  ] = function(v) return string.format("%q", v) end,
   [ "number"  ] = function(v)
-    if      v ~=  v     then return  "0/0"      --  nan
-    elseif  v ==  1 / 0 then return  "1/0"      --  inf
-    elseif  v == -1 / 0 then return "-1/0" end  -- -inf
+    if      v ~=  v     then return  "0/0\n"      --  nan
+    elseif  v ==  1 / 0 then return  "1/0\n"      --  inf
+    elseif  v == -1 / 0 then return "-1/0\n" end  -- -inf
     return tostring(v)
   end,
   [ "table"   ] = function(t, stk)
@@ -571,12 +574,15 @@ local serialize_map = {
     if stk[t] then error("circular reference") end
     local rtn = {}
     stk[t] = true
+    serialize_layer = serialize_layer + 1
     for k, v in pairs(t) do
-      rtn[#rtn + 1] = "[" .. serialize(k, stk) .. "]=" .. serialize(v, stk)
+      rtn[#rtn + 1] = string.rep("\t", serialize_layer).."[" .. serialize(k, stk) .. "] = " .. serialize(v, stk)
     end
     stk[t] = nil
-    return "{" .. table.concat(rtn, ",") .. "}"
-  end
+    serialize_layer = serialize_layer - 1
+    return "{\n" .. table.concat(rtn, ",\n") .. "\n"..string.rep("\t", serialize_layer).."}"
+  end,
+  [ "function"  ] = function(f) return "function" or string.dump(f) end
 }
 
 setmetatable(serialize_map, {
